@@ -48,6 +48,15 @@ class BmiAppTests(unittest.TestCase):
         self.assertNotIn("<script>", page)
         self.assertIn("請輸入大於 0", page)
 
+    def test_obese_bmi_is_highlighted(self):
+        for weight, highlighted in [(107.6, False), (108, True), (120, True)]:
+            with self.subTest(weight=weight):
+                response = self.client.post("/", data={"height": "200", "weight": str(weight)})
+                self.assertEqual(response.status_code, 200)
+                page = response.get_data(as_text=True)
+                self.assertEqual('class="result-number obese"' in page, highlighted)
+
+
 
 if __name__ == "__main__":
     unittest.main()
