@@ -36,6 +36,12 @@
               <form method="post" action="{{ url_for('index') }}" novalidate>
                 <div class="form-fields">
                   <div class="field">
+                    <label for="name">姓名 <span>NAME</span></label>
+                    <div class="input-wrap">
+                      <input id="name" name="name" type="text" autocomplete="name" maxlength="100" placeholder="請輸入姓名" value="{{ name_input }}">
+                    </div>
+                  </div>
+                  <div class="field">
                     <label for="height">身高 <span>HEIGHT</span></label>
                     <div class="input-wrap">
                       <input id="height" name="height" type="number" inputmode="decimal" min="0.01" step="any" placeholder="例如 170" value="{{ height_input }}" required {% if errors.height %}aria-invalid="true" aria-describedby="height-error"{% endif %}>
@@ -61,6 +67,7 @@
             {% if result %}
               <section class="result-panel {{ result.tone }}" aria-labelledby="result-title" aria-live="polite">
                 <span class="panel-kicker">YOUR RESULT / 計算結果</span>
+                {% if name_input %}<p class="result-person">{{ name_input }} 的 BMI 計算結果</p>{% endif %}
                 <div class="result-main">
                   <span class="result-number{% if result.label == '肥胖' %} obese{% endif %}">{{ result.bmi }}</span>
                   <span class="result-unit">BMI</span>
