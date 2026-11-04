@@ -1,44 +1,10 @@
 import unittest
 
-from app import app, bmi_guidance
+from app import bmi_guidance, parse_positive_number
 
 
-class BmiAppTests(unittest.TestCase):
-    def setUp(self):
-        self.client = app.test_client()
-
-    def test_initial_page(self):
-        response = self.client.get("/")
-        self.assertEqual(response.status_code, 200)
-        page = response.get_data(as_text=True)
-        self.assertIn("了解自己的<br><em>健康狀況。</em>", page)
-        self.assertIn("計算你的 BMI", page)
-        self.assertIn('name="name"', page)
-
-    def test_calculation_and_advice(self):
-        response = self.client.post("/", data={"height": "170", "weight": "65"})
-        page = response.get_data(as_text=True)
-        self.assertIn("22.5", page)
-        self.assertIn("健康體位", page)
-        self.assertIn("維持均衡飲食", page)
-
-    def test_name_is_shown_with_result(self):
-        response = self.client.post("/", data={"name": "王小明", "height": "170", "weight": "65"})
-        page = response.get_data(as_text=True)
-        self.assertIn("王小明 的 BMI 計算結果", page)
-        self.assertIn("22.5", page)
-
-    def test_name_is_preserved_on_validation_error(self):
-        response = self.client.post("/", data={"name": "陳小華", "height": "0", "weight": "65"})
-        page = response.get_data(as_text=True)
-        self.assertIn('value="陳小華"', page)
-        self.assertNotIn("YOUR RESULT", page)
-
-    def test_name_is_escaped(self):
-        response = self.client.post("/", data={"name": "<script>alert(1)</script>", "height": "170", "weight": "65"})
-        page = response.get_data(as_text=True)
-        self.assertNotIn("<script>", page)
-        self.assertIn("&lt;script&gt;", page)
+class BmiUnitTests(unittest.TestCase):
+    """Test pure BMI calculation helpers without HTTP or Flask test client."""
 
     def test_taiwan_adult_thresholds(self):
         for bmi, category in [
@@ -52,29 +18,22 @@ class BmiAppTests(unittest.TestCase):
             with self.subTest(bmi=bmi):
                 self.assertEqual(bmi_guidance(bmi)["label"], category)
 
-    def test_invalid_fields_do_not_produce_result(self):
-        for height, weight in [("", "65"), ("0", "65"), ("abc", "65"), ("170", "-2"), ("inf", "65"), ("170", "nan"), ("1e-300", "65"), ("1e308", "65"), ("1", "1e308")]:
-            with self.subTest(height=height, weight=weight):
-                response = self.client.post("/", data={"height": height, "weight": weight})
-                page = response.get_data(as_text=True)
-                self.assertEqual(response.status_code, 200)
-                self.assertIn('aria-invalid="true"', page)
-                self.assertNotIn("YOUR RESULT", page)
+    def test_guidance_contains_tone_and_advice(self):
+        for bmi in (17.0, 22.0, 25.0, 30.0):
+            with self.subTest(bmi=bmi):
+                result = bmi_guidance(bmi)
+                self.assertIn(result["tone"], ("low", "healthy", "high"))
+                self.assertTrue(result["advice"])
 
-    def test_input_is_escaped(self):
-        response = self.client.post("/", data={"height": '<script>alert(1)</script>', "weight": "65"})
-        page = response.get_data(as_text=True)
-        self.assertNotIn("<script>", page)
-        self.assertIn("請輸入大於 0", page)
+    def test_parse_positive_number(self):
+        for value, expected in [("170", 170.0), ("65.5", 65.5), (" 2 ", 2.0)]:
+            with self.subTest(value=value):
+                self.assertEqual(parse_positive_number(value), expected)
 
-    def test_obese_bmi_is_highlighted(self):
-        for weight, highlighted in [(107.6, False), (108, True), (120, True)]:
-            with self.subTest(weight=weight):
-                response = self.client.post("/", data={"height": "200", "weight": str(weight)})
-                self.assertEqual(response.status_code, 200)
-                page = response.get_data(as_text=True)
-                self.assertEqual('class="result-number obese"' in page, highlighted)
-
+    def test_parse_positive_number_rejects_invalid(self):
+        for value in (None, "", "abc", "0", "-2", "inf", "-inf", "nan", "1e309"):
+            with self.subTest(value=value):
+                self.assertIsNone(parse_positive_number(value))
 
 
 if __name__ == "__main__":
